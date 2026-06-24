@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISRO Lunar Ice Detection | Chandrayaan-2 DFSAR Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ───────────────────────────────────────────── */
+    :root {
+      --void:        #03050a;
+      --deep:        #070d1a;
+      --panel:       #0c1628;
+      --surface:     #111f38;
+      --rim:         #1a2f52;
+      --frost:       #a8c8f8;
+      --ice-hi:      #00d9ff;
+      --ice-glow:    #00aadd;
+      --crater:      #e87a3d;
+      --safe:        #3de89b;
+      --danger:      #e84c3d;
+      --dim:         #4a6080;
+      --muted:       #7890a8;
+      --body:        #b0c4d8;
+      --bright:      #e8f2ff;
+      --white:       #ffffff;
+
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-body:    'Inter', sans-serif;
+      --font-mono:    'Space Mono', monospace;
+    }
+
+    /* ── Reset ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      background: var(--void);
+      color: var(--body);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    a { color: var(--ice-hi); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Star field canvas ───────────────────────────────────────── */
+    #starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Shared layout ───────────────────────────────────────────── */
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 1; }
+    section { padding: 6rem 0; }
+
+    /* ── Nav ─────────────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(3, 5, 10, 0.82);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--rim);
+    }
+    .nav-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--ice-hi);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .nav-logo span { color: var(--muted); }
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a {
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--frost); text-decoration: none; }
+
+    /* ── Hero ────────────────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 64px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-bg-glow {
+      position: absolute;
+      width: 800px; height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,170,221,0.07) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ice-glow);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      display: inline-block;
+      width: 32px; height: 1px;
+      background: var(--ice-glow);
+    }
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 5vw, 4.2rem);
+      font-weight: 700;
+      color: var(--bright);
+      line-height: 1.12;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+    .hero-title .accent { color: var(--ice-hi); }
+    .hero-subtitle {
+      font-size: 1.05rem;
+      color: var(--muted);
+      max-width: 560px;
+      margin-bottom: 2.5rem;
+      line-height: 1.7;
+    }
+    .hero-cta-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--ice-hi);
+      color: var(--void);
+      padding: 0.75rem 1.6rem;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { background: var(--frost); transform: translateY(-1px); text-decoration: none; color: var(--void); }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--rim);
+      color: var(--frost);
+      padding: 0.75rem 1.6rem;
+      font-family: var(--font-display);
+      font-weight: 500;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      cursor: pointer;
+      background: transparent;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--frost); color: var(--bright); text-decoration: none; }
+
+    .hero-stats {
+      display: flex;
+      gap: 2.5rem;
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--rim);
+      flex-wrap: wrap;
+    }
+    .hero-stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 0.3rem;
+    }
+    .hero-stat-value {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--bright);
+    }
+    .hero-stat-unit {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-left: 0.25rem;
+    }
+
+    /* ── Section titles ──────────────────────────────────────────── */
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ice-glow);
+      margin-bottom: 0.75rem;
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      font-weight: 700;
+      color: var(--bright);
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+    .section-desc {
+      color: var(--muted);
+      max-width: 580px;
+      line-height: 1.7;
+      margin-bottom: 3rem;
+    }
+
+    /* ── Overview cards ──────────────────────────────────────────── */
+    #overview { background: var(--deep); }
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 8px;
+      padding: 1.75rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: var(--ice-glow); transform: translateY(-2px); }
+    .card-icon {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+    }
+    .card-icon.blue  { background: rgba(0,170,221,0.12); }
+    .card-icon.amber { background: rgba(232,122,61,0.12); }
+    .card-icon.green { background: rgba(61,232,155,0.12); }
+    .card-icon.purple{ background: rgba(150,100,255,0.12); }
+    .card-title {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--bright);
+      margin-bottom: 0.5rem;
+    }
+    .card-body { font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── Timeline / phases ───────────────────────────────────────── */
+    #pipeline { background: var(--void); }
+    .phase-list { display: flex; flex-direction: column; gap: 0; }
+    .phase-item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 2rem;
+      padding: 2.5rem 0;
+      border-top: 1px solid var(--rim);
+      position: relative;
+    }
+    .phase-item:last-child { border-bottom: 1px solid var(--rim); }
+    .phase-num {
+      font-family: var(--font-mono);
+      font-size: 2.6rem;
+      font-weight: 700;
+      color: var(--rim);
+      line-height: 1;
+      padding-top: 0.2rem;
+    }
+    .phase-item:hover .phase-num { color: var(--ice-glow); transition: color 0.2s; }
+    .phase-hours {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-top: 0.4rem;
+    }
+    .phase-title {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--bright);
+      margin-bottom: 0.6rem;
+    }
+    .phase-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.7; margin-bottom: 1rem; }
+    .phase-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 3px;
+      border: 1px solid var(--rim);
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+    .tag.blue  { border-color: rgba(0,170,221,0.4); color: var(--ice-hi); background: rgba(0,170,221,0.07); }
+    .tag.amber { border-color: rgba(232,122,61,0.4); color: #f0a060; background: rgba(232,122,61,0.07); }
+    .tag.green { border-color: rgba(61,232,155,0.4); color: var(--safe); background: rgba(61,232,155,0.07); }
+
+    /* ── Radar metrics visualisation ─────────────────────────────── */
+    #radar { background: var(--deep); }
+    .radar-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    @media (max-width: 768px) { .radar-layout { grid-template-columns: 1fr; } }
+    .metric-block {
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 8px;
+      padding: 1.75rem;
+    }
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 0.5rem;
+    }
+    .metric-name {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--bright);
+      margin-bottom: 0.75rem;
+    }
+    .metric-formula {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--ice-hi);
+      background: rgba(0,170,221,0.08);
+      border: 1px solid rgba(0,170,221,0.2);
+      padding: 0.6rem 0.9rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+    .metric-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; margin-bottom: 1.25rem; }
+    .threshold-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+    .threshold-badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+    .threshold-badge.ice { background: rgba(0,217,255,0.15); color: var(--ice-hi); border: 1px solid rgba(0,217,255,0.3); }
+    .threshold-badge.no-ice { background: rgba(232,76,61,0.12); color: #f07060; border: 1px solid rgba(232,76,61,0.3); }
+    .threshold-label { font-size: 0.82rem; color: var(--muted); }
+
+    /* CPR gauge */
+    .gauge-wrap { margin-top: 1.5rem; }
+    .gauge-track {
+      height: 8px;
+      background: var(--surface);
+      border-radius: 4px;
+      position: relative;
+      margin-bottom: 0.5rem;
+      overflow: visible;
+    }
+    .gauge-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--dim), var(--ice-hi));
+      transition: width 1.2s cubic-bezier(0.25,1,0.5,1);
+    }
+    .gauge-marker {
+      position: absolute;
+      top: -4px;
+      width: 2px; height: 16px;
+      background: var(--crater);
+      border-radius: 1px;
+    }
+    .gauge-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      color: var(--dim);
+    }
+
+    /* ── Terrain & landing ───────────────────────────────────────── */
+    #terrain { background: var(--void); }
+    .criteria-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .criteria-card {
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .criteria-card .c-label {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 0.35rem;
+    }
+    .criteria-card .c-value {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    .criteria-card .c-value.safe   { color: var(--safe); }
+    .criteria-card .c-value.crater { color: var(--crater); }
+    .criteria-card .c-value.ice    { color: var(--ice-hi); }
+    .criteria-card .c-desc { font-size: 0.8rem; color: var(--muted); }
+
+    /* Faux terrain viz */
+    .terrain-viz {
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .terrain-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--rim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .terrain-header-title {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .live-badge {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--safe);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--safe);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .terrain-canvas-wrap { padding: 1.5rem; }
+
+    /* ── Path planner ────────────────────────────────────────────── */
+    #pathplanning { background: var(--deep); }
+    .algo-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+    @media (max-width: 768px) { .algo-layout { grid-template-columns: 1fr; } }
+    .algo-panel {
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .algo-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--rim);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .algo-body { padding: 1.5rem; }
+    .cost-fn {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--ice-hi);
+      background: rgba(0,170,221,0.08);
+      border: 1px solid rgba(0,170,221,0.2);
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1.25rem;
+      line-height: 1.8;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.65rem 0;
+      border-bottom: 1px solid var(--surface);
+      font-size: 0.85rem;
+    }
+    .metric-row:last-child { border-bottom: none; }
+    .metric-row-label { color: var(--muted); }
+    .metric-row-value {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--bright);
+    }
+    .metric-row-value.ok  { color: var(--safe); }
+    .metric-row-value.warn{ color: var(--crater); }
+
+    /* ── Ice volume ──────────────────────────────────────────────── */
+    #volume { background: var(--void); }
+    .volume-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    @media (max-width: 768px) { .volume-layout { grid-template-columns: 1fr; } }
+    .scenario-card {
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .scenario-name {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 0.4rem;
+    }
+    .scenario-volume {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--bright);
+    }
+    .scenario-volume small {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 400;
+      margin-left: 0.3rem;
+    }
+    .scenario-bar-wrap { flex: 1; }
+    .scenario-bar-track {
+      height: 6px;
+      background: var(--surface);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .scenario-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 1.5s cubic-bezier(0.25,1,0.5,1);
+    }
+    .fill-pess  { background: var(--dim); width: 0; }
+    .fill-nom   { background: var(--ice-glow); width: 0; }
+    .fill-opt   { background: var(--ice-hi); width: 0; }
+
+    /* ── Code viewer ─────────────────────────────────────────────── */
+    #code { background: var(--deep); }
+    .code-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rim); margin-bottom: 0; }
+    .code-tab {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      color: var(--dim);
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s;
+      user-select: none;
+    }
+    .code-tab.active { color: var(--ice-hi); border-bottom-color: var(--ice-hi); }
+    .code-tab:hover  { color: var(--frost); }
+    .code-panels { background: var(--panel); border: 1px solid var(--rim); border-top: none; border-radius: 0 0 8px 8px; }
+    .code-panel { display: none; padding: 1.5rem; overflow-x: auto; }
+    .code-panel.active { display: block; }
+    pre {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      line-height: 1.7;
+      color: var(--body);
+      white-space: pre;
+    }
+    .kw  { color: #79c0ff; }  /* keyword  */
+    .fn  { color: #d2a8ff; }  /* function */
+    .st  { color: #a5d6ff; }  /* string   */
+    .cm  { color: #4a6080; font-style: italic; }  /* comment */
+    .nb  { color: var(--ice-hi); }  /* number   */
+    .cl  { color: #ffa657; }  /* class    */
+
+    /* ── Evaluation rubric ───────────────────────────────────────── */
+    #rubric { background: var(--void); }
+    .rubric-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .rubric-table th {
+      text-align: left;
+      padding: 0.85rem 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      border-bottom: 1px solid var(--rim);
+    }
+    .rubric-table td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--surface);
+      color: var(--muted);
+      vertical-align: top;
+    }
+    .rubric-table tr:last-child td { border-bottom: none; }
+    .rubric-table tr:hover td { background: var(--panel); }
+    .rubric-criterion { color: var(--bright); font-weight: 500; }
+    .rubric-check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: rgba(61,232,155,0.12);
+      border: 1px solid rgba(61,232,155,0.3);
+      color: var(--safe);
+      font-size: 0.7rem;
+    }
+
+    /* ── Checklist ───────────────────────────────────────────────── */
+    #checklist { background: var(--deep); }
+    .checklist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 0.5rem;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s;
+      user-select: none;
+    }
+    .check-item:hover { border-color: var(--ice-glow); }
+    .check-item.done { border-color: rgba(61,232,155,0.3); background: rgba(61,232,155,0.04); }
+    .check-item.done .check-box { background: var(--safe); border-color: var(--safe); color: var(--void); }
+    .check-item.done .check-text { color: var(--body); }
+    .check-box {
+      flex-shrink: 0;
+      width: 20px; height: 20px;
+      border-radius: 4px;
+      border: 1px solid var(--rim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem;
+      transition: all 0.2s;
+      margin-top: 0.1rem;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+    footer {
+      background: var(--deep);
+      border-top: 1px solid var(--rim);
+      padding: 3rem 0;
+    }
+    .footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .footer-copy {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      letter-spacing: 0.06em;
+    }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .footer-links a:hover { color: var(--frost); text-decoration: none; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .phase-item { grid-template-columns: 60px 1fr; gap: 1rem; }
+      .phase-num { font-size: 1.6rem; }
+      .nav-links { display: none; }
+    }
+
+    /* ── Scroll animations ───────────────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ── Interactive CPR/DOP demo ────────────────────────────────── */
+    .demo-controls { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: flex-end; }
+    .demo-slider-group { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 180px; }
+    .demo-slider-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+    .demo-slider-value {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--ice-hi);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--surface);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--ice-hi);
+      cursor: pointer;
+    }
+    .demo-result {
+      background: var(--panel);
+      border: 1px solid var(--rim);
+      border-radius: 6px;
+      padding: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      transition: border-color 0.3s;
+    }
+    .demo-result.ice-detected  { border-color: rgba(0,217,255,0.5); background: rgba(0,217,255,0.05); }
+    .demo-result.no-ice        { border-color: rgba(232,76,61,0.5); background: rgba(232,76,61,0.05); }
+    .demo-result.partial       { border-color: rgba(255,200,50,0.5); background: rgba(255,200,50,0.04); }
+    .result-status {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .result-status.ice-text  { color: var(--ice-hi); }
+    .result-status.no-ice-text { color: #f07060; }
+    .result-status.partial-text { color: #ffc832; }
+  </style>
+</head>
+<body>
+
+  <!-- Star field -->
+  <canvas id="starfield"></canvas>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-inner">
+      <div class="nav-logo">ISRO <span>/ Lunar Ice</span></div>
+      <ul class="nav-links">
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#pipeline">Pipeline</a></li>
+        <li><a href="#radar">Radar</a></li>
+        <li><a href="#terrain">Terrain</a></li>
+        <li><a href="#volume">Ice Volume</a></li>
+        <li><a href="#code">Code</a></li>
+        <li><a href="#checklist">Checklist</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ── HERO ── -->
+  <section class="hero" id="hero">
+    <div class="hero-bg-glow"></div>
+    <div class="container">
+      <div class="hero-eyebrow">Chandrayaan-2 DFSAR · 30-Hour Hackathon</div>
+      <h1 class="hero-title">
+        Detecting Subsurface<br>
+        <span class="accent">Lunar Ice</span><br>
+        from Radar Shadows
+      </h1>
+      <p class="hero-subtitle">
+        An end-to-end pipeline for identifying water ice in doubly-shadowed polar craters using DFSAR polarimetric analysis, DEM-based terrain safety scoring, and graph-search rover path planning.
+      </p>
+      <div class="hero-cta-row">
+        <a href="#pipeline" class="btn-primary">▶ Explore Pipeline</a>
+        <a href="#code" class="btn-ghost">⌥ View Code</a>
+      </div>
+      <div class="hero-stats">
+        <div>
+          <div class="hero-stat-label">CPR Threshold</div>
+          <div class="hero-stat-value">&gt; 1.0<span class="hero-stat-unit">CPR</span></div>
+        </div>
+        <div>
+          <div class="hero-stat-label">DOP Threshold</div>
+          <div class="hero-stat-value">&lt; 0.13<span class="hero-stat-unit">DOP</span></div>
+        </div>
+        <div>
+          <div class="hero-stat-label">Max Landing Slope</div>
+          <div class="hero-stat-value">15°<span class="hero-stat-unit">slope</span></div>
+        </div>
+        <div>
+          <div class="hero-stat-label">Radar Depth</div>
+          <div class="hero-stat-value">~30<span class="hero-stat-unit">m (S-band)</span></div>
+        </div>
+        <div>
+          <div class="hero-stat-label">Rover Speed</div>
+          <div class="hero-stat-value">0.5<span class="hero-stat-unit">km/h</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── OVERVIEW ── -->
+  <section id="overview">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Mission Scope</div>
+        <h2 class="section-title">Four Core Deliverables</h2>
+        <p class="section-desc">The pipeline addresses all judging criteria through four tightly integrated modules running on Chandrayaan-2 data.</p>
+      </div>
+      <div class="overview-grid reveal">
+        <div class="card">
+          <div class="card-icon blue">🛰️</div>
+          <div class="card-title">Radar Ice Detection</div>
+          <div class="card-body">CPR and DOP computed from HH/VV/HV DFSAR channels. Fuzzy probabilistic map flags subsurface ice with confidence intervals.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon amber">🏔️</div>
+          <div class="card-title">Terrain Safety Assessment</div>
+          <div class="card-body">Horn-method slope, RMS roughness, and PSR masking identifies viable landing zones within 5 km of target crater.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon green">🤖</div>
+          <div class="card-title">Rover Path Planning</div>
+          <div class="card-body">Dijkstra + A* on 8-connected traversability graph with slope, shadow, and power penalty weights.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon purple">📦</div>
+          <div class="card-title">Ice Volume Estimation</div>
+          <div class="card-body">Backscatter inversion → dielectric constant → porosity model gives pessimistic / nominal / optimistic m³ estimates.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PIPELINE ── -->
+  <section id="pipeline">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">30-Hour Strategy</div>
+        <h2 class="section-title">Phase-by-Phase Pipeline</h2>
+        <p class="section-desc">Strictly time-boxed phases with clear handoff artifacts. Each phase feeds directly into the next.</p>
+      </div>
+      <div class="phase-list">
+
+        <div class="phase-item reveal">
+          <div>
+            <div class="phase-num">01</div>
+            <div class="phase-hours">Hrs 0–3</div>
+          </div>
+          <div>
+            <div class="phase-title">Setup & Data Understanding</div>
+            <div class="phase-desc">Load Chandrayaan-2 DFSAR channels (HH, VV, HV), OHRC optical, and LOLA/SLDEM DEM. Validate geotiff headers, CRS, resolution, and data ranges. Establish baseline CPR/DOP expectations.</div>
+            <div class="phase-tags">
+              <span class="tag blue">rasterio</span>
+              <span class="tag blue">GDAL</span>
+              <span class="tag">numpy</span>
+              <span class="tag">EDA</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phase-item reveal">
+          <div>
+            <div class="phase-num">02</div>
+            <div class="phase-hours">Hrs 3–16</div>
+          </div>
+          <div>
+            <div class="phase-title">Core Analysis Development</div>
+            <div class="phase-desc">Radar processing (Lee speckle filter → CPR/DOP/σ°), ice signature classification, terrain slope/roughness, landing site multi-criteria scoring, and traverse graph construction.</div>
+            <div class="phase-tags">
+              <span class="tag blue">CPR / DOP</span>
+              <span class="tag amber">Slope Analysis</span>
+              <span class="tag green">Dijkstra A*</span>
+              <span class="tag">scipy</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phase-item reveal">
+          <div>
+            <div class="phase-num">03</div>
+            <div class="phase-hours">Hrs 16–22</div>
+          </div>
+          <div>
+            <div class="phase-title">Ice Volume & Integration</div>
+            <div class="phase-desc">Backscatter inversion to dielectric constant, ice-regolith mixture model (ε ≈ 3.1 pure ice), volume calculation with 3 filling-factor scenarios, cross-validation against Cabeus/Shackleton literature.</div>
+            <div class="phase-tags">
+              <span class="tag blue">Radar Inversion</span>
+              <span class="tag">Dielectric Model</span>
+              <span class="tag amber">Uncertainty</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phase-item reveal">
+          <div>
+            <div class="phase-num">04</div>
+            <div class="phase-hours">Hrs 22–30</div>
+          </div>
+          <div>
+            <div class="phase-title">Visualization, Docs & Presentation</div>
+            <div class="phase-desc">Publication-quality figures (QGIS + matplotlib), 20–30 page technical report, 25-slide deck. 3D DEM draped with ice-probability map is the signature visual.</div>
+            <div class="phase-tags">
+              <span class="tag">matplotlib</span>
+              <span class="tag blue">QGIS</span>
+              <span class="tag green">Presentation</span>
+              <span class="tag">Report</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── RADAR ── -->
+  <section id="radar">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Module · radar_analysis.py</div>
+        <h2 class="section-title">Radar Ice Detection</h2>
+        <p class="section-desc">Three polarimetric indicators combined into a fuzzy probability map. Tune the sliders below to explore the detection logic.</p>
+      </div>
+
+      <div class="radar-layout reveal">
+        <div>
+          <div class="metric-block" style="margin-bottom:1.25rem">
+            <div class="metric-label">Parameter 1</div>
+            <div class="metric-name">Circular Polarization Ratio (CPR)</div>
+            <div class="metric-formula">CPR = (HH + VV) / (2 × HV)</div>
+            <div class="metric-desc">High CPR indicates multiple scattering — the radar signal bounces repeatedly inside the subsurface, a hallmark of volume-scattering ice layers.</div>
+            <div class="threshold-row">
+              <span class="threshold-badge ice">CPR &gt; 1.0</span>
+              <span class="threshold-label">→ Ice indicator (multiple scattering)</span>
+            </div>
+            <div class="threshold-row">
+              <span class="threshold-badge no-ice">CPR &lt; 1.0</span>
+              <span class="threshold-label">→ Surface-dominated scattering</span>
+            </div>
+            <div class="gauge-wrap">
+              <div class="gauge-track">
+                <div class="gauge-fill" id="cpr-gauge" style="width:42%"></div>
+                <div class="gauge-marker" style="left:40%" title="Ice threshold @ CPR=1.0"></div>
+              </div>
+              <div class="gauge-labels"><span>0.0</span><span>1.0 ← ice</span><span>2.5</span></div>
+            </div>
+          </div>
+
+          <div class="metric-block">
+            <div class="metric-label">Parameter 2</div>
+            <div class="metric-name">Degree of Polarization (DOP)</div>
+            <div class="metric-formula">DOP = √(HH² + VV² + 2HV²) / (HH + VV)</div>
+            <div class="metric-desc">Low DOP means the signal has been depolarized by a mixed ice-regolith medium. Pure surfaces return polarized echoes; icy porous layers scramble them.</div>
+            <div class="threshold-row">
+              <span class="threshold-badge ice">DOP &lt; 0.13</span>
+              <span class="threshold-label">→ Depolarization (ice-regolith mix)</span>
+            </div>
+            <div class="threshold-row">
+              <span class="threshold-badge no-ice">DOP &gt; 0.13</span>
+              <span class="threshold-label">→ Coherent surface scattering</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- Interactive demo -->
+          <div class="metric-block">
+            <div class="metric-label">Interactive Demo</div>
+            <div class="metric-name">Live Ice Classifier</div>
+            <div class="metric-desc">Adjust CPR, DOP, and backscatter percentile. The classifier mirrors <code style="color:var(--ice-hi);font-size:0.8em">RadarProcessor.detect_ice_anomalies()</code> logic.</div>
+
+            <div class="demo-controls">
+              <div class="demo-slider-group">
+                <div class="demo-slider-label">CPR value <span class="demo-slider-value" id="cpr-val">1.25</span></div>
+                <input type="range" id="cpr-slider" min="0" max="3" step="0.01" value="1.25" />
+              </div>
+              <div class="demo-slider-group">
+                <div class="demo-slider-label">DOP value <span class="demo-slider-value" id="dop-val">0.09</span></div>
+                <input type="range" id="dop-slider" min="0" max="1" step="0.005" value="0.09" />
+              </div>
+              <div class="demo-slider-group">
+                <div class="demo-slider-label">Backscatter %ile <span class="demo-slider-value" id="bs-val">82</span></div>
+                <input type="range" id="bs-slider" min="50" max="99" step="1" value="82" />
+              </div>
+            </div>
+
+            <div class="demo-result" id="demo-result">
+              <div class="result-status" id="result-status"></div>
+              <div id="result-detail" style="font-size:0.78rem;color:var(--muted);line-height:1.7;"></div>
+            </div>
+          </div>
+
+          <!-- Backscatter metric -->
+          <div class="metric-block" style="margin-top:1.25rem">
+            <div class="metric-label">Parameter 3</div>
+            <div class="metric-name">Normalized Backscatter σ°</div>
+            <div class="metric-formula">σ° = 10 · log₁₀((|HH| + |VV|) / 2)  [dB]</div>
+            <div class="metric-desc">Anomalously high backscatter relative to surrounding terrain — especially when co-located with high CPR and low DOP — is a strong signature of buried ice volume scattering. Lee speckle filtering applied first.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TERRAIN ── -->
+  <section id="terrain">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Module · terrain_planning.py</div>
+        <h2 class="section-title">Terrain & Landing Site Assessment</h2>
+        <p class="section-desc">Multi-criteria scoring ranks candidate landing sites. All criteria must be simultaneously satisfied.</p>
+      </div>
+
+      <div class="criteria-grid reveal">
+        <div class="criteria-card">
+          <div class="c-label">Max Slope</div>
+          <div class="c-value safe">&lt; 15°</div>
+          <div class="c-desc">Safe landing footprint (~100m radius). Horn-method gradient from DEM.</div>
+        </div>
+        <div class="criteria-card">
+          <div class="c-label">Crater Proximity</div>
+          <div class="c-value crater">0.5–5 km</div>
+          <div class="c-desc">Within rover range but outside cliff hazard zone.</div>
+        </div>
+        <div class="criteria-card">
+          <div class="c-label">Solar Elevation</div>
+          <div class="c-value ice">&gt; 5–10°</div>
+          <div class="c-desc">Sufficient sunlight for solar panels. PSR mask applied.</div>
+        </div>
+        <div class="criteria-card">
+          <div class="c-label">Roughness RMS</div>
+          <div class="c-value safe">&lt; 30%ile</div>
+          <div class="c-desc">Low RMS deviation in 5×5 px window — smooth surface for lander footpads.</div>
+        </div>
+        <div class="criteria-card">
+          <div class="c-label">Min Area</div>
+          <div class="c-value ice">≥ 100 px</div>
+          <div class="c-desc">Connected safe-terrain patch large enough for landing footprint.</div>
+        </div>
+        <div class="criteria-card">
+          <div class="c-label">Hazards</div>
+          <div class="c-value" style="color:var(--danger)">0</div>
+          <div class="c-desc">No boulders, cliffs, or shadowed pits in immediate area.</div>
+        </div>
+      </div>
+
+      <!-- Terrain SVG viz -->
+      <div class="terrain-viz reveal">
+        <div class="terrain-header">
+          <span class="terrain-header-title">Slope Map · Candidate Sites</span>
+          <span class="live-badge"><span class="live-dot"></span>Simulated</span>
+        </div>
+        <div class="terrain-canvas-wrap">
+          <svg viewBox="0 0 800 280" width="100%" style="display:block;border-radius:4px;" id="terrain-svg">
+            <defs>
+              <linearGradient id="slopeGrad" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stop-color="#3de89b" stop-opacity="0.6"/>
+                <stop offset="40%" stop-color="#f0c040" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="#e84c3d" stop-opacity="0.8"/>
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+          </svg>
+          <div style="display:flex;gap:1.5rem;margin-top:0.75rem;font-family:var(--font-mono);font-size:0.65rem;color:var(--dim);flex-wrap:wrap">
+            <span><span style="color:var(--safe)">●</span> Safe (&lt;15°)</span>
+            <span><span style="color:#f0c040">●</span> Moderate (15–30°)</span>
+            <span><span style="color:var(--danger)">●</span> Hazardous (&gt;30°)</span>
+            <span><span style="color:var(--ice-hi)">◯</span> Candidate landing site</span>
+            <span><span style="color:var(--crater)">★</span> Ice target</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── PATH PLANNING ── -->
+  <section id="pathplanning">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Module · terrain_planning.py · RoverPathPlanner</div>
+        <h2 class="section-title">Rover Traverse Planning</h2>
+        <p class="section-desc">Graph-search over a discretised terrain grid with three penalty components. 8-connectivity, Dijkstra shortest-path.</p>
+      </div>
+
+      <div class="algo-layout reveal">
+        <div class="algo-panel">
+          <div class="algo-header">Cost Function</div>
+          <div class="algo-body">
+            <div class="cost-fn">
+cost = dist × slope_penalty × shadow_penalty<br><br>
+slope_penalty  = 1 + exp(avg_slope / 15)<br>
+shadow_penalty = 1 + 0.3  (if in PSR)<br>
+dist           = res × √2  (diagonal)<br>
+             = res        (cardinal)
+            </div>
+            <div style="font-size:0.83rem;color:var(--muted);line-height:1.7">
+              Infinite cost is assigned to cells with slope &gt; 30° or NaN elevation — the rover simply cannot traverse cliffs or data gaps. The exponential slope term means a 20° slope costs <em style="color:var(--frost)">3.4×</em> more than flat terrain, pushing routes around ridge crests.
+            </div>
+          </div>
+        </div>
+
+        <div class="algo-panel">
+          <div class="algo-header">Simulated Path Metrics · Optimal Route</div>
+          <div class="algo-body">
+            <div class="metric-row">
+              <span class="metric-row-label">Total distance</span>
+              <span class="metric-row-value ok" id="metric-dist">3 420 m</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-row-label">Elevation gain</span>
+              <span class="metric-row-value" id="metric-elev">+148 m</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-row-label">Avg slope along path</span>
+              <span class="metric-row-value ok" id="metric-slope">11.4°</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-row-label">Max slope encountered</span>
+              <span class="metric-row-value warn" id="metric-maxslope">24.7°</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-row-label">Est. traversal time</span>
+              <span class="metric-row-value" id="metric-time">7.8 hrs</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-row-label">Est. power consumption</span>
+              <span class="metric-row-value ok" id="metric-power">2.93 kWh</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-row-label">Shadow distance</span>
+              <span class="metric-row-value warn" id="metric-shadow">580 m</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-row-label">Waypoints</span>
+              <span class="metric-row-value" id="metric-wp">4 912</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ICE VOLUME ── -->
+  <section id="volume">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Phase 5 · Volume Estimation</div>
+        <h2 class="section-title">Subsurface Ice Volume</h2>
+        <p class="section-desc">Backscatter inversion to dielectric constant, then a three-scenario porosity model for the top 5 m of regolith.</p>
+      </div>
+
+      <div class="volume-layout reveal">
+        <div>
+          <div class="scenario-card">
+            <div>
+              <div class="scenario-name">Pessimistic · 20% filling</div>
+              <div class="scenario-volume">0.0023 <small>km³</small></div>
+            </div>
+            <div class="scenario-bar-wrap">
+              <div class="scenario-bar-track">
+                <div class="scenario-bar-fill fill-pess" id="bar-pess"></div>
+              </div>
+            </div>
+          </div>
+          <div class="scenario-card">
+            <div>
+              <div class="scenario-name">Nominal · 50% filling</div>
+              <div class="scenario-volume">0.0056 <small>km³</small></div>
+            </div>
+            <div class="scenario-bar-wrap">
+              <div class="scenario-bar-track">
+                <div class="scenario-bar-fill fill-nom" id="bar-nom"></div>
+              </div>
+            </div>
+          </div>
+          <div class="scenario-card">
+            <div>
+              <div class="scenario-name">Optimistic · 80% filling</div>
+              <div class="scenario-volume">0.0090 <small>km³</small></div>
+            </div>
+            <div class="scenario-bar-wrap">
+              <div class="scenario-bar-track">
+                <div class="scenario-bar-fill fill-opt" id="bar-opt"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:0.5rem;font-family:var(--font-mono);font-size:0.7rem;color:var(--dim);line-height:1.9">
+            Volume = Area × Depth × Porosity × Filling<br>
+            Porosity = 45 % (lunar regolith)<br>
+            Depth    = 5 m (X-band penetration)<br>
+            ε(ice) ≈ 3.1 · ε(dry regolith) ≈ 2.7
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:1.25rem">
+            <div class="card-title">Dielectric Inversion Chain</div>
+            <div class="card-body" style="font-family:var(--font-mono);font-size:0.76rem;line-height:2;color:var(--body)">
+              σ° (backscatter dB)<br>
+              &nbsp;&nbsp;↓  Oh model inversion<br>
+              ε (dielectric constant)<br>
+              &nbsp;&nbsp;↓  mixing model<br>
+              f_ice (ice volume fraction)<br>
+              &nbsp;&nbsp;↓  × area × depth × porosity<br>
+              V_ice (m³) ± 30 %
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Validation Benchmark</div>
+            <div class="card-body">
+              Literature estimates for Cabeus crater floor: <strong style="color:var(--ice-hi)">10⁶ – 10⁷ m³</strong> subsurface ice. Our nominal estimate targets this range as a sanity check. Shackleton crater interior provides a secondary reference point for high CPR / low DOP agreement.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CODE VIEWER ── -->
+  <section id="code">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Source Code</div>
+        <h2 class="section-title">Three-Module Architecture</h2>
+        <p class="section-desc">Each module is fully self-contained and importable. <code style="color:var(--ice-hi)">pipeline.py</code> orchestrates them end-to-end.</p>
+      </div>
+
+      <div class="reveal">
+        <div class="code-tabs">
+          <div class="code-tab active" data-tab="radar">radar_analysis.py</div>
+          <div class="code-tab" data-tab="terrain">terrain_planning.py</div>
+          <div class="code-tab" data-tab="pipeline">pipeline.py</div>
+        </div>
+        <div class="code-panels">
+
+          <div class="code-panel active" id="tab-radar">
+<pre><span class="cm"># ISRO Lunar Ice Detection: Radar Analysis Module</span>
+<span class="kw">class</span> <span class="cl">RadarProcessor</span>:
+    <span class="cm">"""Processes dual-pol SAR data (HH, VV, HV channels)."""</span>
+
+    <span class="kw">def</span> <span class="fn">compute_cpr</span>(self):
+        <span class="cm"># CPR = (HH + VV) / (2 × HV)</span>
+        denominator = <span class="nb">2</span> * np.abs(self.HV) + <span class="nb">1e-10</span>
+        self.CPR = (self.HH + self.VV) / denominator
+        self.CPR = np.clip(self.CPR, <span class="nb">0</span>, <span class="nb">5</span>)
+        <span class="kw">return</span> self.CPR
+
+    <span class="kw">def</span> <span class="fn">compute_dop</span>(self):
+        <span class="cm"># DOP = sqrt(HH²+VV²+2HV²) / (HH+VV)</span>
+        numerator   = np.sqrt(self.HH**<span class="nb">2</span> + self.VV**<span class="nb">2</span> + <span class="nb">2</span>*self.HV**<span class="nb">2</span>)
+        denominator = self.HH + self.VV + <span class="nb">1e-10</span>
+        self.DOP    = np.clip(numerator / denominator, <span class="nb">0</span>, <span class="nb">1</span>)
+        <span class="kw">return</span> self.DOP
+
+    <span class="kw">def</span> <span class="fn">detect_ice_anomalies</span>(self, cpr_threshold=<span class="nb">1.0</span>,
+                                   dop_threshold=<span class="nb">0.13</span>,
+                                   backscatter_percentile=<span class="nb">75</span>):
+        bs_threshold   = np.nanpercentile(self.backscatter,
+                                          backscatter_percentile)
+        ice_cpr        = self.CPR > cpr_threshold
+        ice_dop        = self.DOP < dop_threshold
+        ice_bs         = self.backscatter > bs_threshold
+
+        ice_map_strict  = ice_cpr & ice_dop & ice_bs
+        ice_map_relaxed = (ice_cpr & ice_dop) | (ice_cpr & ice_bs)
+        <span class="kw">return</span> ice_map_strict, ice_map_relaxed
+
+    <span class="kw">def</span> <span class="fn">compute_ice_probability_map</span>(self, smooth=<span class="nb">True</span>, sigma=<span class="nb">1.5</span>):
+        cpr_norm   = np.clip(self.CPR  / <span class="nb">2.0</span>,  <span class="nb">0</span>, <span class="nb">1</span>)
+        dop_norm   = np.clip(<span class="nb">1</span> - self.DOP / <span class="nb">0.13</span>, <span class="nb">0</span>, <span class="nb">1</span>)
+        bs_norm    = <span class="cm"># normalize backscatter to [0,1]</span>
+        ice_prob   = (cpr_norm + dop_norm + bs_norm) / <span class="nb">3</span>
+        <span class="kw">if</span> smooth:
+            ice_prob = gaussian_filter(ice_prob, sigma=sigma)
+        <span class="kw">return</span> ice_prob</pre>
+          </div>
+
+          <div class="code-panel" id="tab-terrain">
+<pre><span class="cm"># Terrain Analysis & Path Planning Module</span>
+<span class="kw">class</span> <span class="cl">TerrainAnalyzer</span>:
+
+    <span class="kw">def</span> <span class="fn">compute_slope</span>(self, method=<span class="st">'horn'</span>):
+        res   = self.metadata[<span class="st">'res_meters'</span>]
+        dz_dx = ndimage.sobel(self.dem, axis=<span class="nb">1</span>) / (<span class="nb">8</span> * res)
+        dz_dy = ndimage.sobel(self.dem, axis=<span class="nb">0</span>) / (<span class="nb">8</span> * res)
+        slope_rad  = np.arctan(np.sqrt(dz_dx**<span class="nb">2</span> + dz_dy**<span class="nb">2</span>))
+        self.slope = np.degrees(slope_rad)
+        <span class="kw">return</span> self.slope
+
+
+<span class="kw">class</span> <span class="cl">RoverPathPlanner</span>:
+
+    <span class="kw">def</span> <span class="fn">build_traversability_graph</span>(self, dem, slope,
+                                         shadow_mask=<span class="nb">None</span>,
+                                         max_slope=<span class="nb">30</span>):
+        graph = defaultdict(dict)
+        neighbors = [(-<span class="nb">1</span>,-<span class="nb">1</span>),(-<span class="nb">1</span>,<span class="nb">0</span>),(-<span class="nb">1</span>,<span class="nb">1</span>),(0,-<span class="nb">1</span>),
+                     (0,<span class="nb">1</span>),(1,-<span class="nb">1</span>),(1,<span class="nb">0</span>),(1,<span class="nb">1</span>)]
+        <span class="kw">for</span> r, c <span class="kw">in</span> traversable_cells:
+            <span class="kw">for</span> dr, dc <span class="kw">in</span> neighbors:
+                dist          = res * (√2 <span class="kw">if</span> diagonal <span class="kw">else</span> <span class="nb">1</span>)
+                avg_slope     = (slope[r,c] + slope[nr,nc]) / <span class="nb">2</span>
+                slope_pen     = <span class="nb">1</span> + np.exp(avg_slope / <span class="nb">15</span>) - <span class="nb">1</span>
+                shadow_pen    = <span class="nb">1.3</span> <span class="kw">if</span> in_shadow <span class="kw">else</span> <span class="nb">1.0</span>
+                graph[r,c][nr,nc] = dist * slope_pen * shadow_pen
+        <span class="kw">return</span> graph
+
+    <span class="kw">def</span> <span class="fn">dijkstra_path</span>(self, start, goal, graph):
+        pq = [(<span class="nb">0</span>, start)]
+        <span class="kw">while</span> pq:
+            cost, node = heapq.heappop(pq)
+            <span class="kw">if</span> node == goal:
+                <span class="kw">return</span> reconstruct_path(parent, goal), cost
+            <span class="kw">for</span> nb, w <span class="kw">in</span> graph[node].items():
+                relax_and_push(nb, cost + w)
+        <span class="kw">return</span> <span class="nb">None</span>, float(<span class="st">'inf'</span>)</pre>
+          </div>
+
+          <div class="code-panel" id="tab-pipeline">
+<pre><span class="cm"># End-to-End Pipeline Orchestrator</span>
+<span class="kw">class</span> <span class="cl">HackathonPipeline</span>:
+
+    <span class="kw">def</span> <span class="fn">run_complete_pipeline</span>(self):
+        <span class="cm"># Phase 1 – Load data</span>
+        files = self.<span class="fn">phase_1_data_loading</span>()
+
+        <span class="cm"># Phase 2 – Radar analysis</span>
+        processor = RadarProcessor(verbose=<span class="nb">True</span>)
+        processor.<span class="fn">load_channels</span>(files[<span class="st">'hh'</span>], files[<span class="st">'vv'</span>], files[<span class="st">'hv'</span>])
+        processor.<span class="fn">denoise_channels</span>(window_size=<span class="nb">5</span>, method=<span class="st">'lee'</span>)
+        processor.<span class="fn">compute_cpr</span>()
+        processor.<span class="fn">compute_dop</span>()
+        processor.<span class="fn">compute_backscatter</span>()
+        ice_prob = processor.<span class="fn">compute_ice_probability_map</span>()
+
+        <span class="cm"># Phase 3 – Terrain</span>
+        terrain = TerrainAnalyzer()
+        terrain.<span class="fn">load_dem</span>(files[<span class="st">'dem'</span>])
+        terrain.<span class="fn">compute_slope</span>()
+        terrain.<span class="fn">compute_roughness</span>()
+        sites = terrain.<span class="fn">identify_landing_sites</span>(max_slope=<span class="nb">15</span>)
+
+        <span class="cm"># Phase 4 – Path planning</span>
+        planner = RoverPathPlanner(terrain)
+        graph   = planner.<span class="fn">build_traversability_graph</span>(...)
+        path, _ = planner.<span class="fn">dijkstra_path</span>(start, goal, graph)
+        metrics = planner.<span class="fn">compute_path_metrics</span>(path, ...)
+
+        <span class="cm"># Phase 5 – Volume + report</span>
+        volumes = self.<span class="fn">phase_5_volume_estimation</span>()
+        report  = self.<span class="fn">generate_final_report</span>()
+
+<span class="kw">if</span> __name__ == <span class="st">'__main__'</span>:
+    <span class="cm"># python pipeline.py --data_dir ./data --output_dir ./outputs</span>
+    pipeline = <span class="cl">HackathonPipeline</span>(args.data_dir, args.output_dir)
+    pipeline.<span class="fn">run_complete_pipeline</span>()</pre>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── RUBRIC ── -->
+  <section id="rubric">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Evaluation</div>
+        <h2 class="section-title">Judging Rubric Alignment</h2>
+        <p class="section-desc">Every criterion mapped to a concrete deliverable from the pipeline.</p>
+      </div>
+
+      <div class="reveal" style="background:var(--panel);border:1px solid var(--rim);border-radius:8px;overflow:hidden">
+        <table class="rubric-table">
+          <thead>
+            <tr>
+              <th>Criterion</th>
+              <th>Deliverable</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="rubric-criterion">Scientific Robustness</span></td>
+              <td>Validated CPR/DOP detection cross-checked against Cabeus/Shackleton literature values</td>
+              <td><span class="rubric-check">✓</span></td>
+            </tr>
+            <tr>
+              <td><span class="rubric-criterion">Data Analysis Accuracy</span></td>
+              <td>Correct CPR/DOP/σ° formulas, Lee speckle filter, incidence normalization</td>
+              <td><span class="rubric-check">✓</span></td>
+            </tr>
+            <tr>
+              <td><span class="rubric-criterion">Interpretation Clarity</span></td>
+              <td>Probabilistic ice maps, confidence zones (high/medium/low), figure captions</td>
+              <td><span class="rubric-check">✓</span></td>
+            </tr>
+            <tr>
+              <td><span class="rubric-criterion">Landing Site Feasibility</span></td>
+              <td>Multi-criteria scoring: slope, roughness, shadow, crater distance, area</td>
+              <td><span class="rubric-check">✓</span></td>
+            </tr>
+            <tr>
+              <td><span class="rubric-criterion">Rover Traverse Safety</span></td>
+              <td>Hazard-aware graph, power budget, waypoint elevation profile</td>
+              <td><span class="rubric-check">✓</span></td>
+            </tr>
+            <tr>
+              <td><span class="rubric-criterion">Innovation</span></td>
+              <td>Radar+optical fusion, probabilistic map, graph-search path optimizer</td>
+              <td><span class="rubric-check">✓</span></td>
+            </tr>
+            <tr>
+              <td><span class="rubric-criterion">Presentation Quality</span></td>
+              <td>Publication figures, 25-slide deck, 3D DEM+ice-probability overlay</td>
+              <td><span class="rubric-check">✓</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CHECKLIST ── -->
+  <section id="checklist">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Hour 28 · Final Checklist</div>
+        <h2 class="section-title">Pre-Submission Checklist</h2>
+        <p class="section-desc">Click each item to mark it complete. Your progress is saved in the browser.</p>
+      </div>
+
+      <div class="checklist-grid reveal" id="checklist-grid">
+        <!-- items injected by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-copy">ISRO Lunar Ice Detection · Chandrayaan-2 DFSAR Hackathon · 2026</div>
+      <div class="footer-links">
+        <a href="#hero">Top</a>
+        <a href="#pipeline">Pipeline</a>
+        <a href="#code">Code</a>
+        <a href="#checklist">Checklist</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ─────────────────── SCRIPTS ─────────────────── -->
+  <script>
+  /* ── Star field ── */
+  (function () {
+    const canvas = document.getElementById('starfield');
+    const ctx    = canvas.getContext('2d');
+    let stars    = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    function initStars(n = 280) {
+      stars = Array.from({ length: n }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.2 + 0.2,
+        o: Math.random() * 0.6 + 0.1,
+        s: Math.random() * 0.3 + 0.05,
+      }));
+    }
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        s.o += (Math.random() - 0.5) * 0.02;
+        s.o  = Math.max(0.05, Math.min(0.8, s.o));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,220,255,${s.o})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(draw);
+    }
+    window.addEventListener('resize', () => { resize(); initStars(); });
+    resize(); initStars(); draw();
+  })();
+
+  /* ── Scroll reveal ── */
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => io.observe(el));
+
+  /* ── Code tabs ── */
+  document.querySelectorAll('.code-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.code-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  /* ── Interactive radar classifier ── */
+  function updateClassifier() {
+    const cpr = parseFloat(document.getElementById('cpr-slider').value);
+    const dop = parseFloat(document.getElementById('dop-slider').value);
+    const bs  = parseInt(document.getElementById('bs-slider').value);
+
+    document.getElementById('cpr-val').textContent = cpr.toFixed(2);
+    document.getElementById('dop-val').textContent = dop.toFixed(3);
+    document.getElementById('bs-val').textContent  = bs;
+
+    // Update CPR gauge fill (0–5 mapped to 0–100%)
+    document.getElementById('cpr-gauge').style.width = Math.min(cpr / 3 * 100, 100) + '%';
+
+    const iceCPR = cpr  >  1.0;
+    const iceDOP = dop  <  0.13;
+    const iceBS  = bs   >= 75;
+
+    const strict  = iceCPR && iceDOP && iceBS;
+    const relaxed = (iceCPR && iceDOP) || (iceCPR && iceBS);
+
+    const res    = document.getElementById('demo-result');
+    const status = document.getElementById('result-status');
+    const detail = document.getElementById('result-detail');
+
+    if (strict) {
+      res.className    = 'demo-result ice-detected';
+      status.className = 'result-status ice-text';
+      status.textContent = '✦ ICE DETECTED — High Confidence';
+      detail.innerHTML = `CPR=${cpr.toFixed(2)} (>1.0 ✓) &nbsp;|&nbsp; DOP=${dop.toFixed(3)} (<0.13 ✓) &nbsp;|&nbsp; BS@${bs}%ile (≥75 ✓)<br>All 3 criteria satisfied → strict detection.`;
+    } else if (relaxed) {
+      res.className    = 'demo-result partial';
+      status.className = 'result-status partial-text';
+      status.textContent = '◐ POSSIBLE ICE — Partial Match';
+      const met = [iceCPR?'CPR':'', iceDOP?'DOP':'', iceBS?'BS':''].filter(Boolean).join(', ');
+      detail.innerHTML = `Criteria met: ${met}.<br>Relaxed detection (2 of 3). Consider additional optical corroboration.`;
+    } else {
+      res.className    = 'demo-result no-ice';
+      status.className = 'result-status no-ice-text';
+      status.textContent = '✕ NO ICE — Surface Regolith';
+      const miss = [!iceCPR?`CPR=${cpr.toFixed(2)} needs >1.0`:'', !iceDOP?`DOP=${dop.toFixed(3)} needs <0.13`:'', !iceBS?`BS@${bs}%ile needs ≥75`:''].filter(Boolean).join(' · ');
+      detail.innerHTML = `Fails: ${miss}`;
+    }
+  }
+  ['cpr-slider','dop-slider','bs-slider'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateClassifier);
+  });
+  updateClassifier();
+
+  /* ── Terrain SVG procedural map ── */
+  (function () {
+    const svg = document.getElementById('terrain-svg');
+    const W = 800, H = 280;
+
+    // Simple noise-based terrain
+    function noise(x, y, seed=1) {
+      return Math.sin(x*0.11*seed + y*0.07) * Math.cos(y*0.09 - x*0.05*seed) * 0.5 + 0.5;
+    }
+
+    // Draw slope heatmap as pixel grid (downsampled)
+    const COLS = 80, ROWS = 28;
+    const cw = W/COLS, rh = H/ROWS;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const v  = noise(c, r, 2.3);
+        const v2 = noise(c, r, 4.1);
+        const slope = Math.abs(v - v2) * 60;
+        let fill;
+        if (slope < 15)      fill = `rgba(61,232,155,${0.25 + v*0.25})`;
+        else if (slope < 30) fill = `rgba(240,192,64,${0.3 + v*0.3})`;
+        else                 fill = `rgba(232,76,61,${0.35 + v*0.3})`;
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x', c*cw); rect.setAttribute('y', r*rh);
+        rect.setAttribute('width', cw+0.5); rect.setAttribute('height', rh+0.5);
+        rect.setAttribute('fill', fill);
+        svg.appendChild(rect);
+      }
+    }
+
+    // Candidate landing sites
+    const sites = [{cx:150,cy:80},{cx:320,cy:140},{cx:580,cy:100}];
+    sites.forEach((s,i) => {
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',s.cx); c.setAttribute('cy',s.cy); c.setAttribute('r',14);
+      c.setAttribute('fill','none'); c.setAttribute('stroke','#00d9ff'); c.setAttribute('stroke-width','2');
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',s.cx); t.setAttribute('y',s.cy-18);
+      t.setAttribute('text-anchor','middle'); t.setAttribute('fill','#00d9ff');
+      t.setAttribute('font-size','10'); t.setAttribute('font-family','Space Mono, monospace');
+      t.textContent = `L${i+1}`;
+      g.appendChild(c); g.appendChild(t); svg.appendChild(g);
+    });
+
+    // Ice target star
+    const star = document.createElementNS('http://www.w3.org/2000/svg','text');
+    star.setAttribute('x','640'); star.setAttribute('y','195');
+    star.setAttribute('text-anchor','middle'); star.setAttribute('fill','#e87a3d');
+    star.setAttribute('font-size','22'); star.textContent = '★';
+    svg.appendChild(star);
+    const sl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    sl.setAttribute('x','640'); sl.setAttribute('y','215');
+    sl.setAttribute('text-anchor','middle'); sl.setAttribute('fill','#e87a3d');
+    sl.setAttribute('font-size','9'); sl.setAttribute('font-family','Space Mono, monospace');
+    sl.textContent = 'ICE TARGET';
+    svg.appendChild(sl);
+
+    // Draw rover paths from landing sites to target
+    sites.forEach((s,i) => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      const cx1  = s.cx + (640-s.cx)*0.4, cy1 = s.cy + (195-s.cy)*0.2;
+      const cx2  = s.cx + (640-s.cx)*0.6, cy2 = s.cy + (195-s.cy)*0.8;
+      path.setAttribute('d',`M${s.cx},${s.cy} C${cx1},${cy1} ${cx2},${cy2} 640,195`);
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke', i===0?'#00d9ff':'rgba(0,217,255,0.35)');
+      path.setAttribute('stroke-width', i===0?'2':'1');
+      path.setAttribute('stroke-dasharray', i===0?'':'5,4');
+      svg.insertBefore(path, sites[0] ? svg.children[COLS*ROWS] : svg.firstChild);
+    });
+  })();
+
+  /* ── Volume bars (animate on visible) ── */
+  function animateBars() {
+    document.getElementById('bar-pess').style.width = '28%';
+    document.getElementById('bar-nom').style.width  = '70%';
+    document.getElementById('bar-opt').style.width  = '100%';
+  }
+  const barSection = document.getElementById('volume');
+  const barIO = new IntersectionObserver(e => {
+    if (e[0].isIntersecting) { animateBars(); barIO.disconnect(); }
+  }, { threshold: 0.3 });
+  barIO.observe(barSection);
+
+  /* ── Checklist ── */
+  const checkItems = [
+    'All radar parameters calculated (CPR, DOP, σ°)',
+    'Lee speckle filter applied to HH/VV/HV',
+    'Ice detection map generated with thresholds',
+    'Ice probability map smoothed (Gaussian σ=1.5)',
+    'DEM loaded and slope computed (Horn method)',
+    'Roughness RMS computed (5×5 window)',
+    'PSR mask applied to terrain',
+    'Landing site candidates identified & scored',
+    'Traversability graph built (8-connected)',
+    'Dijkstra path computed: start → ice target',
+    'Path metrics calculated (time, power, slope)',
+    'Ice volume estimated (3 scenarios)',
+    'Dielectric inversion validated vs literature',
+    'Diagnostic radar figures saved (dpi=150)',
+    'Slope & roughness maps exported',
+    'Landing + traverse visualization exported',
+    'GeoTIFFs saved with CRS & transform',
+    'report.json generated',
+    'All figures labeled & publication-ready',
+    'Report proofread & logically structured',
+    'Presentation slide deck complete (25 slides)',
+    '2-min backup verbal explanation prepared',
+    'Code uploaded to repo with README',
+    'Final pipeline.py tested end-to-end',
+  ];
+
+  const stored = JSON.parse(localStorage.getItem('isro-checklist') || '{}');
+  const grid   = document.getElementById('checklist-grid');
+
+  checkItems.forEach((text, i) => {
+    const key  = 'item-' + i;
+    const div  = document.createElement('div');
+    div.className = 'check-item' + (stored[key] ? ' done' : '');
+    div.innerHTML = `<div class="check-box">${stored[key]?'✓':''}</div><span class="check-text">${text}</span>`;
+    div.addEventListener('click', () => {
+      const done = div.classList.toggle('done');
+      stored[key] = done;
+      div.querySelector('.check-box').textContent = done ? '✓' : '';
+      try { localStorage.setItem('isro-checklist', JSON.stringify(stored)); } catch(e){}
+    });
+    grid.appendChild(div);
+  });
+  </script>
+</body>
+</html>
