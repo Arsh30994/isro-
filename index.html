@@ -91,6 +91,32 @@
       transition: color 0.2s;
     }
     .nav-links a:hover { color: var(--frost); text-decoration: none; }
+    .nav-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      background: transparent;
+      border: 1px solid var(--rim);
+      border-radius: 4px;
+      color: var(--frost);
+      cursor: pointer;
+      padding: 0;
+    }
+    .nav-toggle:hover { border-color: var(--frost); }
+    .nav-toggle-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      width: 16px;
+    }
+    .nav-toggle-bars span {
+      display: block;
+      height: 2px;
+      background: var(--frost);
+      border-radius: 1px;
+    }
 
     /* ── Hero ────────────────────────────────────────────────────── */
     .hero {
@@ -726,12 +752,33 @@
     @media (max-width: 640px) {
       .phase-item { grid-template-columns: 60px 1fr; gap: 1rem; }
       .phase-num { font-size: 1.6rem; }
-      .nav-links { display: none; }
+      .nav-toggle { display: flex; }
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 0;
+        background: rgba(3, 5, 10, 0.96);
+        border-bottom: 1px solid var(--rim);
+        padding: 0.5rem 0 1rem;
+      }
+      nav.is-open .nav-links { display: flex; }
+      .nav-links a { display: block; padding: 0.75rem 2rem; }
     }
 
-    /* ── Scroll animations ───────────────────────────────────────── */
-    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
-    .reveal.visible { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .js .reveal { opacity: 1; transform: none; transition: none; }
+      .gauge-fill, .scenario-bar-fill { transition: none; }
+      .live-dot { animation: none; }
+    }
+
+    /* ── Scroll animations (only when JS is active) ──────────────── */
+    .js .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .js .reveal.visible { opacity: 1; transform: none; }
 
     /* ── Interactive CPR/DOP demo ────────────────────────────────── */
     .demo-controls { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: flex-end; }
@@ -786,6 +833,7 @@
   </style>
 </head>
 <body>
+  <script>document.documentElement.classList.add('js');</script>
 
   <!-- Star field -->
   <canvas id="starfield"></canvas>
@@ -794,11 +842,15 @@
   <nav>
     <div class="nav-inner">
       <div class="nav-logo">ISRO <span>/ Lunar Ice</span></div>
-      <ul class="nav-links">
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
+        <span class="nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
+      <ul class="nav-links" id="nav-links">
         <li><a href="#overview">Overview</a></li>
         <li><a href="#pipeline">Pipeline</a></li>
         <li><a href="#radar">Radar</a></li>
         <li><a href="#terrain">Terrain</a></li>
+        <li><a href="#pathplanning">Path</a></li>
         <li><a href="#volume">Ice Volume</a></li>
         <li><a href="#code">Code</a></li>
         <li><a href="#checklist">Checklist</a></li>
@@ -989,9 +1041,9 @@
             <div class="gauge-wrap">
               <div class="gauge-track">
                 <div class="gauge-fill" id="cpr-gauge" style="width:42%"></div>
-                <div class="gauge-marker" style="left:40%" title="Ice threshold @ CPR=1.0"></div>
+                <div class="gauge-marker" style="left:33.33%" title="Ice threshold @ CPR=1.0"></div>
               </div>
-              <div class="gauge-labels"><span>0.0</span><span>1.0 ← ice</span><span>2.5</span></div>
+              <div class="gauge-labels"><span>0.0</span><span>1.0 ← ice</span><span>3.0</span></div>
             </div>
           </div>
 
@@ -1505,234 +1557,352 @@ dist           = res × √2  (diagonal)<br>
 
   <!-- ─────────────────── SCRIPTS ─────────────────── -->
   <script>
+  function safe(label, fn) {
+    try { fn(); }
+    catch (err) { console.warn('[ISRO] ' + label + ' failed:', err); }
+  }
+
+  function onVisible(el, callback, threshold) {
+    if (!el) return;
+    if (typeof IntersectionObserver !== 'function') { callback(); return; }
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0] && entries[0].isIntersecting) { callback(); obs.disconnect(); }
+    }, { threshold: threshold || 0.12 });
+    obs.observe(el);
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  /* ── Mobile nav ── */
+  safe('nav', function () {
+    const nav = document.querySelector('nav');
+    const toggle = document.getElementById('nav-toggle');
+    const links = document.getElementById('nav-links');
+    if (!nav || !toggle || !links) return;
+
+    function setOpen(open) {
+      nav.classList.toggle('is-open', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    }
+
+    toggle.addEventListener('click', function () {
+      setOpen(!nav.classList.contains('is-open'));
+    });
+    links.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () { setOpen(false); });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setOpen(false);
+    });
+  });
+
   /* ── Star field ── */
-  (function () {
+  safe('starfield', function () {
     const canvas = document.getElementById('starfield');
-    const ctx    = canvas.getContext('2d');
-    let stars    = [];
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let stars = [];
+    let raf = 0;
 
     function resize() {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width  = window.innerWidth || 1;
+      canvas.height = window.innerHeight || 1;
     }
-    function initStars(n = 280) {
-      stars = Array.from({ length: n }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 1.2 + 0.2,
-        o: Math.random() * 0.6 + 0.1,
-        s: Math.random() * 0.3 + 0.05,
-      }));
+    function initStars(n) {
+      stars = Array.from({ length: n }, function () {
+        return {
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.2,
+          o: Math.random() * 0.6 + 0.1,
+        };
+      });
     }
-    function draw() {
+    function paint() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      stars.forEach(s => {
-        s.o += (Math.random() - 0.5) * 0.02;
-        s.o  = Math.max(0.05, Math.min(0.8, s.o));
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200,220,255,${s.o})`;
+        ctx.fillStyle = 'rgba(200,220,255,' + s.o + ')';
         ctx.fill();
-      });
-      requestAnimationFrame(draw);
+      }
     }
-    window.addEventListener('resize', () => { resize(); initStars(); });
-    resize(); initStars(); draw();
-  })();
+    function draw() {
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        s.o += (Math.random() - 0.5) * 0.02;
+        s.o = Math.max(0.05, Math.min(0.8, s.o));
+      }
+      paint();
+      raf = requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', function () { resize(); initStars(stars.length || 180); paint(); });
+    resize();
+    initStars(prefersReducedMotion() ? 80 : 180);
+    paint();
+    if (!prefersReducedMotion()) draw();
+    window.addEventListener('pagehide', function () { if (raf) cancelAnimationFrame(raf); });
+  });
 
   /* ── Scroll reveal ── */
-  const revealEls = document.querySelectorAll('.reveal');
-  const io = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
-  }, { threshold: 0.12 });
-  revealEls.forEach(el => io.observe(el));
+  safe('reveal', function () {
+    const revealEls = document.querySelectorAll('.reveal');
+    if (prefersReducedMotion() || typeof IntersectionObserver !== 'function') {
+      revealEls.forEach(function (el) { el.classList.add('visible'); });
+      return;
+    }
+    const io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    revealEls.forEach(function (el) { io.observe(el); });
+  });
 
   /* ── Code tabs ── */
-  document.querySelectorAll('.code-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.code-panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  safe('tabs', function () {
+    const tabs = document.querySelectorAll('.code-tab');
+    tabs.forEach(function (tab) {
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('tabindex', tab.classList.contains('active') ? '0' : '-1');
+      tab.addEventListener('click', function () {
+        tabs.forEach(function (t) {
+          t.classList.remove('active');
+          t.setAttribute('tabindex', '-1');
+        });
+        document.querySelectorAll('.code-panel').forEach(function (p) { p.classList.remove('active'); });
+        tab.classList.add('active');
+        tab.setAttribute('tabindex', '0');
+        const panel = document.getElementById('tab-' + tab.dataset.tab);
+        if (panel) panel.classList.add('active');
+      });
     });
   });
 
   /* ── Interactive radar classifier ── */
-  function updateClassifier() {
-    const cpr = parseFloat(document.getElementById('cpr-slider').value);
-    const dop = parseFloat(document.getElementById('dop-slider').value);
-    const bs  = parseInt(document.getElementById('bs-slider').value);
-
-    document.getElementById('cpr-val').textContent = cpr.toFixed(2);
-    document.getElementById('dop-val').textContent = dop.toFixed(3);
-    document.getElementById('bs-val').textContent  = bs;
-
-    // Update CPR gauge fill (0–5 mapped to 0–100%)
-    document.getElementById('cpr-gauge').style.width = Math.min(cpr / 3 * 100, 100) + '%';
-
-    const iceCPR = cpr  >  1.0;
-    const iceDOP = dop  <  0.13;
-    const iceBS  = bs   >= 75;
-
-    const strict  = iceCPR && iceDOP && iceBS;
-    const relaxed = (iceCPR && iceDOP) || (iceCPR && iceBS);
-
+  safe('classifier', function () {
+    const cprSlider = document.getElementById('cpr-slider');
+    const dopSlider = document.getElementById('dop-slider');
+    const bsSlider  = document.getElementById('bs-slider');
+    const cprVal = document.getElementById('cpr-val');
+    const dopVal = document.getElementById('dop-val');
+    const bsVal  = document.getElementById('bs-val');
+    const gauge  = document.getElementById('cpr-gauge');
     const res    = document.getElementById('demo-result');
     const status = document.getElementById('result-status');
     const detail = document.getElementById('result-detail');
+    if (!cprSlider || !dopSlider || !bsSlider || !res || !status || !detail) return;
 
-    if (strict) {
-      res.className    = 'demo-result ice-detected';
-      status.className = 'result-status ice-text';
-      status.textContent = '✦ ICE DETECTED — High Confidence';
-      detail.innerHTML = `CPR=${cpr.toFixed(2)} (>1.0 ✓) &nbsp;|&nbsp; DOP=${dop.toFixed(3)} (<0.13 ✓) &nbsp;|&nbsp; BS@${bs}%ile (≥75 ✓)<br>All 3 criteria satisfied → strict detection.`;
-    } else if (relaxed) {
-      res.className    = 'demo-result partial';
-      status.className = 'result-status partial-text';
-      status.textContent = '◐ POSSIBLE ICE — Partial Match';
-      const met = [iceCPR?'CPR':'', iceDOP?'DOP':'', iceBS?'BS':''].filter(Boolean).join(', ');
-      detail.innerHTML = `Criteria met: ${met}.<br>Relaxed detection (2 of 3). Consider additional optical corroboration.`;
-    } else {
-      res.className    = 'demo-result no-ice';
-      status.className = 'result-status no-ice-text';
-      status.textContent = '✕ NO ICE — Surface Regolith';
-      const miss = [!iceCPR?`CPR=${cpr.toFixed(2)} needs >1.0`:'', !iceDOP?`DOP=${dop.toFixed(3)} needs <0.13`:'', !iceBS?`BS@${bs}%ile needs ≥75`:''].filter(Boolean).join(' · ');
-      detail.innerHTML = `Fails: ${miss}`;
+    function updateClassifier() {
+      const cpr = parseFloat(cprSlider.value);
+      const dop = parseFloat(dopSlider.value);
+      const bs  = parseInt(bsSlider.value, 10);
+      if (cprVal) cprVal.textContent = cpr.toFixed(2);
+      if (dopVal) dopVal.textContent = dop.toFixed(3);
+      if (bsVal)  bsVal.textContent  = String(bs);
+      if (gauge)  gauge.style.width  = Math.min(cpr / 3 * 100, 100) + '%';
+
+      const iceCPR = cpr > 1.0;
+      const iceDOP = dop < 0.13;
+      const iceBS  = bs  >= 75;
+      const strict  = iceCPR && iceDOP && iceBS;
+      const relaxed = (iceCPR && iceDOP) || (iceCPR && iceBS);
+
+      if (strict) {
+        res.className    = 'demo-result ice-detected';
+        status.className = 'result-status ice-text';
+        status.textContent = '✦ ICE DETECTED — High Confidence';
+        detail.innerHTML = 'CPR=' + cpr.toFixed(2) + ' (&gt;1.0 ✓) &nbsp;|&nbsp; DOP=' + dop.toFixed(3) +
+          ' (&lt;0.13 ✓) &nbsp;|&nbsp; BS@' + bs + '%ile (≥75 ✓)<br>All 3 criteria satisfied → strict detection.';
+      } else if (relaxed) {
+        res.className    = 'demo-result partial';
+        status.className = 'result-status partial-text';
+        status.textContent = '◐ POSSIBLE ICE — Partial Match';
+        const met = [iceCPR ? 'CPR' : '', iceDOP ? 'DOP' : '', iceBS ? 'BS' : ''].filter(Boolean).join(', ');
+        detail.innerHTML = 'Criteria met: ' + met + '.<br>Relaxed detection (2 of 3). Consider additional optical corroboration.';
+      } else {
+        res.className    = 'demo-result no-ice';
+        status.className = 'result-status no-ice-text';
+        status.textContent = '✕ NO ICE — Surface Regolith';
+        const miss = [
+          !iceCPR ? ('CPR=' + cpr.toFixed(2) + ' needs &gt;1.0') : '',
+          !iceDOP ? ('DOP=' + dop.toFixed(3) + ' needs &lt;0.13') : '',
+          !iceBS  ? ('BS@' + bs + '%ile needs ≥75') : ''
+        ].filter(Boolean).join(' · ');
+        detail.innerHTML = 'Fails: ' + miss;
+      }
     }
-  }
-  ['cpr-slider','dop-slider','bs-slider'].forEach(id => {
-    document.getElementById(id).addEventListener('input', updateClassifier);
+
+    [cprSlider, dopSlider, bsSlider].forEach(function (el) {
+      el.addEventListener('input', updateClassifier);
+      el.addEventListener('change', updateClassifier);
+    });
+    updateClassifier();
   });
-  updateClassifier();
 
   /* ── Terrain SVG procedural map ── */
-  (function () {
+  safe('terrain', function () {
     const svg = document.getElementById('terrain-svg');
+    if (!svg) return;
     const W = 800, H = 280;
+    const NS = 'http://www.w3.org/2000/svg';
 
-    // Simple noise-based terrain
-    function noise(x, y, seed=1) {
-      return Math.sin(x*0.11*seed + y*0.07) * Math.cos(y*0.09 - x*0.05*seed) * 0.5 + 0.5;
+    function noise(x, y, seed) {
+      seed = seed || 1;
+      return Math.sin(x * 0.11 * seed + y * 0.07) * Math.cos(y * 0.09 - x * 0.05 * seed) * 0.5 + 0.5;
     }
 
-    // Draw slope heatmap as pixel grid (downsampled)
     const COLS = 80, ROWS = 28;
-    const cw = W/COLS, rh = H/ROWS;
+    const cw = W / COLS, rh = H / ROWS;
+    const frag = document.createDocumentFragment();
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const v  = noise(c, r, 2.3);
         const v2 = noise(c, r, 4.1);
         const slope = Math.abs(v - v2) * 60;
         let fill;
-        if (slope < 15)      fill = `rgba(61,232,155,${0.25 + v*0.25})`;
-        else if (slope < 30) fill = `rgba(240,192,64,${0.3 + v*0.3})`;
-        else                 fill = `rgba(232,76,61,${0.35 + v*0.3})`;
+        if (slope < 15)      fill = 'rgba(61,232,155,' + (0.25 + v * 0.25) + ')';
+        else if (slope < 30) fill = 'rgba(240,192,64,' + (0.3 + v * 0.3) + ')';
+        else                 fill = 'rgba(232,76,61,' + (0.35 + v * 0.3) + ')';
 
-        const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-        rect.setAttribute('x', c*cw); rect.setAttribute('y', r*rh);
-        rect.setAttribute('width', cw+0.5); rect.setAttribute('height', rh+0.5);
+        const rect = document.createElementNS(NS, 'rect');
+        rect.setAttribute('x', String(c * cw));
+        rect.setAttribute('y', String(r * rh));
+        rect.setAttribute('width', String(cw + 0.5));
+        rect.setAttribute('height', String(rh + 0.5));
         rect.setAttribute('fill', fill);
-        svg.appendChild(rect);
+        frag.appendChild(rect);
       }
     }
+    svg.appendChild(frag);
 
-    // Candidate landing sites
-    const sites = [{cx:150,cy:80},{cx:320,cy:140},{cx:580,cy:100}];
-    sites.forEach((s,i) => {
-      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      c.setAttribute('cx',s.cx); c.setAttribute('cy',s.cy); c.setAttribute('r',14);
-      c.setAttribute('fill','none'); c.setAttribute('stroke','#00d9ff'); c.setAttribute('stroke-width','2');
-      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-      t.setAttribute('x',s.cx); t.setAttribute('y',s.cy-18);
-      t.setAttribute('text-anchor','middle'); t.setAttribute('fill','#00d9ff');
-      t.setAttribute('font-size','10'); t.setAttribute('font-family','Space Mono, monospace');
-      t.textContent = `L${i+1}`;
+    const sites = [{ cx: 150, cy: 80 }, { cx: 320, cy: 140 }, { cx: 580, cy: 100 }];
+    sites.forEach(function (s, i) {
+      const g = document.createElementNS(NS, 'g');
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', s.cx); c.setAttribute('cy', s.cy); c.setAttribute('r', 14);
+      c.setAttribute('fill', 'none'); c.setAttribute('stroke', '#00d9ff'); c.setAttribute('stroke-width', '2');
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', s.cx); t.setAttribute('y', s.cy - 18);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('fill', '#00d9ff');
+      t.setAttribute('font-size', '10'); t.setAttribute('font-family', 'Space Mono, monospace');
+      t.textContent = 'L' + (i + 1);
       g.appendChild(c); g.appendChild(t); svg.appendChild(g);
     });
 
-    // Ice target star
-    const star = document.createElementNS('http://www.w3.org/2000/svg','text');
-    star.setAttribute('x','640'); star.setAttribute('y','195');
-    star.setAttribute('text-anchor','middle'); star.setAttribute('fill','#e87a3d');
-    star.setAttribute('font-size','22'); star.textContent = '★';
+    const star = document.createElementNS(NS, 'text');
+    star.setAttribute('x', '640'); star.setAttribute('y', '195');
+    star.setAttribute('text-anchor', 'middle'); star.setAttribute('fill', '#e87a3d');
+    star.setAttribute('font-size', '22'); star.textContent = '★';
     svg.appendChild(star);
-    const sl = document.createElementNS('http://www.w3.org/2000/svg','text');
-    sl.setAttribute('x','640'); sl.setAttribute('y','215');
-    sl.setAttribute('text-anchor','middle'); sl.setAttribute('fill','#e87a3d');
-    sl.setAttribute('font-size','9'); sl.setAttribute('font-family','Space Mono, monospace');
+    const sl = document.createElementNS(NS, 'text');
+    sl.setAttribute('x', '640'); sl.setAttribute('y', '215');
+    sl.setAttribute('text-anchor', 'middle'); sl.setAttribute('fill', '#e87a3d');
+    sl.setAttribute('font-size', '9'); sl.setAttribute('font-family', 'Space Mono, monospace');
     sl.textContent = 'ICE TARGET';
     svg.appendChild(sl);
 
-    // Draw rover paths from landing sites to target
-    sites.forEach((s,i) => {
-      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-      const cx1  = s.cx + (640-s.cx)*0.4, cy1 = s.cy + (195-s.cy)*0.2;
-      const cx2  = s.cx + (640-s.cx)*0.6, cy2 = s.cy + (195-s.cy)*0.8;
-      path.setAttribute('d',`M${s.cx},${s.cy} C${cx1},${cy1} ${cx2},${cy2} 640,195`);
-      path.setAttribute('fill','none');
-      path.setAttribute('stroke', i===0?'#00d9ff':'rgba(0,217,255,0.35)');
-      path.setAttribute('stroke-width', i===0?'2':'1');
-      path.setAttribute('stroke-dasharray', i===0?'':'5,4');
-      svg.insertBefore(path, sites[0] ? svg.children[COLS*ROWS] : svg.firstChild);
+    const overlayRef = svg.children[COLS * ROWS] || null;
+    sites.forEach(function (s, i) {
+      const path = document.createElementNS(NS, 'path');
+      const cx1 = s.cx + (640 - s.cx) * 0.4, cy1 = s.cy + (195 - s.cy) * 0.2;
+      const cx2 = s.cx + (640 - s.cx) * 0.6, cy2 = s.cy + (195 - s.cy) * 0.8;
+      path.setAttribute('d', 'M' + s.cx + ',' + s.cy + ' C' + cx1 + ',' + cy1 + ' ' + cx2 + ',' + cy2 + ' 640,195');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', i === 0 ? '#00d9ff' : 'rgba(0,217,255,0.35)');
+      path.setAttribute('stroke-width', i === 0 ? '2' : '1');
+      if (i !== 0) path.setAttribute('stroke-dasharray', '5,4');
+      svg.insertBefore(path, overlayRef);
     });
-  })();
+  });
 
   /* ── Volume bars (animate on visible) ── */
-  function animateBars() {
-    document.getElementById('bar-pess').style.width = '28%';
-    document.getElementById('bar-nom').style.width  = '70%';
-    document.getElementById('bar-opt').style.width  = '100%';
-  }
-  const barSection = document.getElementById('volume');
-  const barIO = new IntersectionObserver(e => {
-    if (e[0].isIntersecting) { animateBars(); barIO.disconnect(); }
-  }, { threshold: 0.3 });
-  barIO.observe(barSection);
+  safe('volume', function () {
+    function animateBars() {
+      const pess = document.getElementById('bar-pess');
+      const nom  = document.getElementById('bar-nom');
+      const opt  = document.getElementById('bar-opt');
+      if (pess) pess.style.width = '28%';
+      if (nom)  nom.style.width  = '70%';
+      if (opt)  opt.style.width  = '100%';
+    }
+    const barSection = document.getElementById('volume');
+    if (prefersReducedMotion()) animateBars();
+    else onVisible(barSection, animateBars, 0.3);
+  });
 
   /* ── Checklist ── */
-  const checkItems = [
-    'All radar parameters calculated (CPR, DOP, σ°)',
-    'Lee speckle filter applied to HH/VV/HV',
-    'Ice detection map generated with thresholds',
-    'Ice probability map smoothed (Gaussian σ=1.5)',
-    'DEM loaded and slope computed (Horn method)',
-    'Roughness RMS computed (5×5 window)',
-    'PSR mask applied to terrain',
-    'Landing site candidates identified & scored',
-    'Traversability graph built (8-connected)',
-    'Dijkstra path computed: start → ice target',
-    'Path metrics calculated (time, power, slope)',
-    'Ice volume estimated (3 scenarios)',
-    'Dielectric inversion validated vs literature',
-    'Diagnostic radar figures saved (dpi=150)',
-    'Slope & roughness maps exported',
-    'Landing + traverse visualization exported',
-    'GeoTIFFs saved with CRS & transform',
-    'report.json generated',
-    'All figures labeled & publication-ready',
-    'Report proofread & logically structured',
-    'Presentation slide deck complete (25 slides)',
-    '2-min backup verbal explanation prepared',
-    'Code uploaded to repo with README',
-    'Final pipeline.py tested end-to-end',
-  ];
+  safe('checklist', function () {
+    const checkItems = [
+      'All radar parameters calculated (CPR, DOP, σ°)',
+      'Lee speckle filter applied to HH/VV/HV',
+      'Ice detection map generated with thresholds',
+      'Ice probability map smoothed (Gaussian σ=1.5)',
+      'DEM loaded and slope computed (Horn method)',
+      'Roughness RMS computed (5×5 window)',
+      'PSR mask applied to terrain',
+      'Landing site candidates identified & scored',
+      'Traversability graph built (8-connected)',
+      'Dijkstra path computed: start → ice target',
+      'Path metrics calculated (time, power, slope)',
+      'Ice volume estimated (3 scenarios)',
+      'Dielectric inversion validated vs literature',
+      'Diagnostic radar figures saved (dpi=150)',
+      'Slope & roughness maps exported',
+      'Landing + traverse visualization exported',
+      'GeoTIFFs saved with CRS & transform',
+      'report.json generated',
+      'All figures labeled & publication-ready',
+      'Report proofread & logically structured',
+      'Presentation slide deck complete (25 slides)',
+      '2-min backup verbal explanation prepared',
+      'Code uploaded to repo with README',
+      'Final pipeline.py tested end-to-end',
+    ];
 
-  const stored = JSON.parse(localStorage.getItem('isro-checklist') || '{}');
-  const grid   = document.getElementById('checklist-grid');
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem('isro-checklist') || '{}') || {}; }
+    catch (e) { stored = {}; }
 
-  checkItems.forEach((text, i) => {
-    const key  = 'item-' + i;
-    const div  = document.createElement('div');
-    div.className = 'check-item' + (stored[key] ? ' done' : '');
-    div.innerHTML = `<div class="check-box">${stored[key]?'✓':''}</div><span class="check-text">${text}</span>`;
-    div.addEventListener('click', () => {
-      const done = div.classList.toggle('done');
-      stored[key] = done;
-      div.querySelector('.check-box').textContent = done ? '✓' : '';
-      try { localStorage.setItem('isro-checklist', JSON.stringify(stored)); } catch(e){}
+    const grid = document.getElementById('checklist-grid');
+    if (!grid) return;
+
+    checkItems.forEach(function (text, i) {
+      const key = 'item-' + i;
+      const div = document.createElement('div');
+      div.className = 'check-item' + (stored[key] ? ' done' : '');
+      div.setAttribute('role', 'checkbox');
+      div.setAttribute('aria-checked', stored[key] ? 'true' : 'false');
+      div.setAttribute('tabindex', '0');
+
+      const box = document.createElement('div');
+      box.className = 'check-box';
+      box.textContent = stored[key] ? '✓' : '';
+      const span = document.createElement('span');
+      span.className = 'check-text';
+      span.textContent = text;
+      div.appendChild(box);
+      div.appendChild(span);
+
+      function toggle() {
+        const done = div.classList.toggle('done');
+        stored[key] = done;
+        box.textContent = done ? '✓' : '';
+        div.setAttribute('aria-checked', done ? 'true' : 'false');
+        try { localStorage.setItem('isro-checklist', JSON.stringify(stored)); } catch (e) {}
+      }
+      div.addEventListener('click', toggle);
+      div.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      });
+      grid.appendChild(div);
     });
-    grid.appendChild(div);
   });
   </script>
 </body>
