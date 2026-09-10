@@ -62,6 +62,11 @@ See [`docs/PLATFORM.md`](docs/PLATFORM.md) and [`docs/ICE_DETECTION.md`](docs/IC
 - No confirmed ice; no operational landing certification.
 - Default matcher is **AKAZE + Lowe-ratio** unless optional AI weights are installed.
 
+## Credits
+
+- **[Arsh30994](https://github.com/Arsh30994)** — project owner; directed the Cursor agent work that combined LunaMatch with the ISRO pipeline site in this repo.
+- LunaMatch app & backend adapted from [`harmannmahna/chandrayaanonmoon`](https://github.com/harmannmahna/chandrayaanonmoon).
+
 ## Source merge
 
 - App & backend: adapted from `harmannmahna/chandrayaanonmoon` (LunaMatch).
